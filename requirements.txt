@@ -1,0 +1,15 @@
+# Env + config
+python-dotenv
+
+# Optional
+uvicorn
+fastapi
+ffmpeg
+
+moviepy
+natsort
+pydub
+Requests
+google-cloud-storage
+google-genai
+srt

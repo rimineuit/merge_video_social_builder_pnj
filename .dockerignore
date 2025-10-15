@@ -1,0 +1,9 @@
+venv/
+audio/
+image/
+script/
+.env
+.gitignore
+bg.wav
+__pycache__/
+*.mp4
