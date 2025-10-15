@@ -3,3 +3,5 @@ image/
 script/
 venv/
 *.mp4
+.env
+__pycache__/
