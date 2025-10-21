@@ -13,3 +13,4 @@ Requests
 google-cloud-storage
 google-genai
 srt
+playwright

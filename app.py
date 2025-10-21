@@ -91,31 +91,7 @@ def generate_video(body: MakeVideoRequest):
     color = body.color
     name_day = body.name_day
     
-    # # Chạy script ghép video
-    # cmd = [
-    #     sys.executable,"-m", 
-    #     "video_maker.concat_video",
-    #     json.dumps(transcripts, ensure_ascii=False),
-    #     json.dumps(wav_urls, ensure_ascii=False),
-    #     json.dumps(image_urls, ensure_ascii=False),
-    #     str(fps),
-    #     str(show_script),
-    # ]
-    
     merge_video(transcripts, wav_urls, image_urls, fps=fps, show_script=show_script, color=color, name_day=name_day)
-
-    # try:
-    #     proc = subprocess.run(
-    #         cmd,
-    #         capture_output=True,
-    #         text=True,
-    #         timeout=9000,
-    #         check=True,  # raise CalledProcessError nếu exit code != 0
-    #     )
-    # except subprocess.CalledProcessError as e:
-    #     raise HTTPException(status_code=500, detail=f"Script error: {e.stderr or e.stdout}")
-    # except subprocess.TimeoutExpired:
-    #     raise HTTPException(status_code=504, detail="Tạo video quá thời gian (timeout).")
 
     # File đầu ra mặc định từ script
     default_out = Path("audio/my_video.mp4")
@@ -184,11 +160,12 @@ def generate_poster(body: PosterRequest):
                 cmd += ["--quality", str(int(body.quality))]
         else:
             cmd += ["--png", str(img_path)]
+            
 
         # Có thể truyền thêm scale/wait vào script nếu bạn bổ sung tham số tương ứng
         # Ở đây script đã có --scale/--wait nên ta truyền luôn:
         cmd += ["--scale", str(int(body.scale)), "--wait", body.wait]
-
+        print(cmd)
         try:
             proc = subprocess.run(
                 cmd,

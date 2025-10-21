@@ -1,6 +1,6 @@
 import os
 from natsort import natsorted
-from moviepy import AudioFileClip, TextClip, ColorClip, ImageClip, CompositeVideoClip, vfx, afx
+from moviepy import AudioFileClip, TextClip, ImageClip, CompositeVideoClip, vfx
 from utils.get_srt import get_srt_from_wav_file
 from utils.convert_srt_file_to_json import convert_srt_to_json
 from pydub import AudioSegment
@@ -44,7 +44,7 @@ def make_subcript_thumbnail(name_date=None, font="font/Roboto-SemiBold.ttf", sta
     first_txt = TextClip(
         text=first_text,
         font=font,
-        font_size=100,
+        font_size=75,
         color=color,
         text_align='center',
         method='label',
@@ -56,33 +56,35 @@ def make_subcript_thumbnail(name_date=None, font="font/Roboto-SemiBold.ttf", sta
     )
     
     out_first = first_txt.with_start(start).with_duration(duration) \
-                        .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
-                        .with_position(("center", 150))
+                        .with_effects([vfx.CrossFadeIn(0.1), vfx.CrossFadeOut(0.1)]) \
+                        .with_position(("center", 50))
                         
-    # subtitle về mệnh ngày        
-    second_txt = TextClip(
-        text=second_text,
-        font=font,
-        font_size=200,
-        color=color,
-        text_align='center',
-        method='label',
-        vertical_align='bottom',
-        horizontal_align='center',
-        margin=(0,0,0,50),
-        stroke_color='white',
-        stroke_width=5
-    )
-    
-    out_second = second_txt.with_start(start).with_duration(duration) \
-                        .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
-                        .with_position(("center", 450))
+    # subtitle về mệnh ngày   
+    out_second = []
+    for i, s in enumerate(second_text.split(" ")):     
+        second_txt = TextClip(
+            text=s,
+            font=font,
+            font_size=150,
+            color=color,
+            text_align='center',
+            method='label',
+            vertical_align='bottom',
+            horizontal_align='center',
+            margin=(0,0,0,50),
+            stroke_color='white',
+            stroke_width=5
+        )
+        
+        out_second.append(second_txt.with_start(start).with_duration(duration) \
+                            .with_effects([vfx.CrossFadeIn(0.1), vfx.CrossFadeOut(0.1)]) \
+                            .with_position(("center", 200 + i * 200)))
                             
     if len(tmp_lst) == 2:
         third_txt = TextClip(
-            text=third_txt,
+            text=tmp_lst[-1],
             font=font,
-            font_size=100,
+            font_size=70,
             color=color,
             text_align='center',
             method='label',
@@ -94,14 +96,14 @@ def make_subcript_thumbnail(name_date=None, font="font/Roboto-SemiBold.ttf", sta
         )
         
         out_third = third_txt.with_start(start).with_duration(duration) \
-                            .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
-                            .with_position(("center", 950))
+                            .with_effects([vfx.CrossFadeIn(0.1), vfx.CrossFadeOut(0.1)]) \
+                            .with_position(("center", 850))
     
     return out_first, out_second, out_third                     
     
 # Lấy .srt từ file wav và trả về đầu ra cho giai đoạn tạo scripts
 def generate_transcripts(file_path="audio/output.wav"):
-    # get_srt_from_wav_file(api_key="AIzaSyAFSfrp9FMI-8LAxGTB6CUOzEm_1lPK3Nk",file_path=file_path)
+    get_srt_from_wav_file(api_key="AIzaSyAFSfrp9FMI-8LAxGTB6CUOzEm_1lPK3Nk",file_path=file_path)
     json_data = convert_srt_to_json("audio/output.srt")
     return json_data
 
@@ -257,10 +259,11 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
         scripts_json = generate_transcripts(file_path="audio/output.wav")
         
         # Tạo subcript cho thumbnail
-        first_text_clip, second_text_clip, third_text_clip = make_subcript_thumbnail(name_date=name_day, color=color,start=0, duration=scripts_json[0]['start'])
+        first_text_clip, second_text_clip, third_text_clip = make_subcript_thumbnail(name_date=name_day, color=color,start=0, duration=10)
         print(scripts_json[0]['start'])
         final_clips.append(first_text_clip)
-        final_clips.append(second_text_clip)
+        for clip in second_text_clip:
+            final_clips.append(clip)
         if third_text_clip:
             final_clips.append(third_text_clip)
         
@@ -274,7 +277,7 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
                 text=content,
                 font=font,
                 font_size=100,
-                color='#B8860B',
+                color=color,
                 text_align='center',
                 method='label',
                 vertical_align='bottom',
@@ -312,10 +315,10 @@ def delete_resource(script_dir='./script', audio_dir='./audio', image_dir='./ima
         shutil.rmtree(image_dir)
 
 def merge_video(transcripts, wav_urls, image_urls, color, name_day, fps=30, show_script=False):
-    # delete_resource()
-    # save_transcripts_to_folder(transcripts)
-    # download_wavs_from_urls(wav_urls)
-    # download_images_from_urls(image_urls)
+    delete_resource()
+    save_transcripts_to_folder(transcripts)
+    download_wavs_from_urls(wav_urls)
+    download_images_from_urls(image_urls)
     make_video(fps=fps, show_script=show_script, name_day=name_day, color=color)
     
 # import sys
