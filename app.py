@@ -162,7 +162,7 @@ class PosterRequest(BaseModel):
         "networkidle", description="Chiến lược chờ tải trang"
     )
     # Nếu poster_generator.py nằm nơi khác, chỉnh tại đây
-    script_path: str = Field("poster_generator.py", description="Đường dẫn script sinh poster")
+    script_path: str = Field("image_slide.poster_generator", description="Đường dẫn script sinh poster")
 
 @app.post("/generate-poster")
 def generate_poster(body: PosterRequest):
@@ -177,7 +177,7 @@ def generate_poster(body: PosterRequest):
         img_path = tmpdir_path / f"poster.{img_ext}"
 
         # Lắp command gọi script
-        cmd = [sys.executable, body.script_path, *body.images, "-t", body.text, "-o", str(html_path)]
+        cmd = [sys.executable, "-m" ,body.script_path, *body.images, "-t", body.text, "-o", str(html_path)]
         if body.fmt == "jpeg":
             cmd += ["--jpeg", str(img_path)]
             if body.quality is not None:
