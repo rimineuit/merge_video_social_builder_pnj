@@ -100,10 +100,16 @@ def make_subcript_thumbnail(name_date=None, font="font/Roboto-SemiBold.ttf", sta
                             .with_position(("center", 850))
     
     return out_first, out_second, out_third                     
-    
+
+
 # Lấy .srt từ file wav và trả về đầu ra cho giai đoạn tạo scripts
 def generate_transcripts(file_path="audio/output.wav"):
-    get_srt_from_wav_file(api_key="AIzaSyAFSfrp9FMI-8LAxGTB6CUOzEm_1lPK3Nk",file_path=file_path)
+    import dotenv
+    dotenv.load_dotenv()
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("❌ Missing GEMINI_API_KEY in environment variables")
+    get_srt_from_wav_file(api_key=api_key,file_path=file_path)
     json_data = convert_srt_to_json("audio/output.srt")
     return json_data
 
