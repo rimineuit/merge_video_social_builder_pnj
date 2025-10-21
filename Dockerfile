@@ -7,7 +7,7 @@ COPY requirements.txt /app/requirements.txt
 # Dùng cache mount (BuildKit) để tăng tốc pip (không làm phình image)
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt \
-    playwright install chromium
+    python -m playwright install --with-deps chromium
 
 COPY . /app
 
