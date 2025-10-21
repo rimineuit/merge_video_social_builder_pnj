@@ -50,21 +50,20 @@ def get_srt_from_wav_file(api_key=None, file_path="audio/output.wav"):
     )
     srt_text = response.text.strip()
 
-    # # ✅ Lưu ra file .srt
-    # base_name = os.path.splitext(file_path)[0]
-    # output_path = f"{base_name}.srt"
-    # with open(output_path, "w", encoding="utf-8") as f:
-    #     f.write(srt_text)
+    # ✅ Lưu ra file .srt
+    base_name = os.path.splitext(file_path)[0]
+    output_path = f"{base_name}.srt"
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(srt_text)
 
-    # print(f"✅ SRT file saved to: {output_path}")
-    return srt_text
+    print(f"✅ SRT file saved to: {output_path}")
 
 
-if __name__ == "__main__":
-    import sys
-    api_key = sys.argv[1] if len(sys.argv) > 1 else "AIzaSyCIXYIVHYMXgJu8jqb5pLVgE47TEBtnJk0"
-    file_path = sys.argv[2] if len(sys.argv) > 2 else "audio/output.wav"
+# if __name__ == "__main__":
+#     import sys
+#     api_key = sys.argv[1] if len(sys.argv) > 1 else "AIzaSyAFSfrp9FMI-8LAxGTB6CUOzEm_1lPK3Nk"
+#     file_path = sys.argv[2] if len(sys.argv) > 2 else "audio/output.wav"
 
-    srt_text = get_srt_from_wav_file(api_key, file_path)
-    print("\n--- SRT CONTENT ---\n")
-    print(srt_text)
+#     srt_text = get_srt_from_wav_file(api_key, file_path)
+#     print("\n--- SRT CONTENT ---\n")
+#     print(srt_text)

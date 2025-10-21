@@ -35,14 +35,78 @@ def download_images_from_urls(image_urls, image_dir='./image'):
         with open(file_name, 'wb') as f:
             f.write(r.content)
 
+def make_subcript_thumbnail(name_date=None, font="font/Roboto-SemiBold.ttf", start=None, duration=None, color=None):
+    tmp_lst = name_date.split("-")
+    # "Nên - Không nên" text
+    first_text = "Nên - Không nên"
+    second_text = tmp_lst[0]
+    out_third = None
+    first_txt = TextClip(
+        text=first_text,
+        font=font,
+        font_size=100,
+        color=color,
+        text_align='center',
+        method='label',
+        vertical_align='bottom',
+        horizontal_align='center',
+        margin=(0,0,0,50),
+        stroke_color='white',
+        stroke_width=5
+    )
+    
+    out_first = first_txt.with_start(start).with_duration(duration) \
+                        .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
+                        .with_position(("center", 150))
+                        
+    # subtitle về mệnh ngày        
+    second_txt = TextClip(
+        text=second_text,
+        font=font,
+        font_size=200,
+        color=color,
+        text_align='center',
+        method='label',
+        vertical_align='bottom',
+        horizontal_align='center',
+        margin=(0,0,0,50),
+        stroke_color='white',
+        stroke_width=5
+    )
+    
+    out_second = second_txt.with_start(start).with_duration(duration) \
+                        .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
+                        .with_position(("center", 450))
+                            
+    if len(tmp_lst) == 2:
+        third_txt = TextClip(
+            text=third_txt,
+            font=font,
+            font_size=100,
+            color=color,
+            text_align='center',
+            method='label',
+            vertical_align='bottom',
+            horizontal_align='center',
+            margin=(0,0,0,50),
+            stroke_color='white',
+            stroke_width=5
+        )
+        
+        out_third = third_txt.with_start(start).with_duration(duration) \
+                            .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
+                            .with_position(("center", 950))
+    
+    return out_first, out_second, out_third                     
+    
 # Lấy .srt từ file wav và trả về đầu ra cho giai đoạn tạo scripts
 def generate_transcripts(file_path="audio/output.wav"):
-    srt_text = get_srt_from_wav_file(api_key="AIzaSyCIXYIVHYMXgJu8jqb5pLVgE47TEBtnJk0",file_path=file_path)
-    json_data = convert_srt_to_json(srt_text)
+    # get_srt_from_wav_file(api_key="AIzaSyAFSfrp9FMI-8LAxGTB6CUOzEm_1lPK3Nk",file_path=file_path)
+    json_data = convert_srt_to_json("audio/output.srt")
     return json_data
 
 # Tạo video
-def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', fps=30, show_script=False, font="font/Roboto-SemiBold.ttf"):
+def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', fps=30, show_script=False, font="font/Roboto-SemiBold.ttf",color=None, name_day=None):
     """
     Tạo video từ ảnh + audio + transcript.
     Các vá quan trọng:
@@ -102,7 +166,7 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
         mixed = mixed.fade_in(50).fade_out(120)
         os.makedirs(os.path.dirname(ouput_wav), exist_ok=True)
         mixed.export(ouput_wav, format="wav")
-
+    
     # ----- B) Durations của từng đoạn bằng pydub -----
     def get_durations(audio_dir):
         durations = []
@@ -111,7 +175,6 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
             seg = AudioSegment.from_file(f)
             durations.append(len(seg) / 1000.0)
         return durations
-
 
     def build_bg_to_length(bg_wav_path: str, target_seconds: float, out_path: str,
                         crossfade_ms: int = 200,
@@ -182,9 +245,9 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
         dur = durations[i] + 0.5  # khớp khoảng silence giữa các đoạn
         # Zoom ảnh 
         base = img_clip[i].with_start(tmp).with_duration(dur) \
-                          .resized(lambda t: 1 + 0.04 * t) \
                           .with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)]) \
-                          .with_position(("center", "center"))
+                        #   .with_position(("center", "center")) \
+                                                      #   .resized(lambda t: 1 + 0.005 * t) \
                           
         final_clips.append(base)
         tmp += dur
@@ -192,38 +255,40 @@ def make_video(script_dir='./script', audio_dir='./audio', image_dir='./image', 
     # ----- D) Load transcript clips -----
     if show_script:
         scripts_json = generate_transcripts(file_path="audio/output.wav")
-        # script_clip = []
-        # bg_clips = []
+        
+        # Tạo subcript cho thumbnail
+        first_text_clip, second_text_clip, third_text_clip = make_subcript_thumbnail(name_date=name_day, color=color,start=0, duration=scripts_json[0]['start'])
+        print(scripts_json[0]['start'])
+        final_clips.append(first_text_clip)
+        final_clips.append(second_text_clip)
+        if third_text_clip:
+            final_clips.append(third_text_clip)
+        
         for script in scripts_json:
             content = script['content']
             start = script['start']
             end = script['end']
-            # import textwrap
-            # wrapped_text = "\n".join(textwrap.wrap(content, width=5))
+            duration = end - start
+
             txt = TextClip(
                 text=content,
                 font=font,
-                font_size=60,
-                color='red',
+                font_size=100,
+                color='#B8860B',
                 text_align='center',
-                method='caption',
-                horizontal_align="center",
-                vertical_align="bottom",
-                size=(500, None),
-                margin=(5, 30)
+                method='label',
+                vertical_align='bottom',
+                horizontal_align='center',
+                margin=(0,0,0,50),
+                stroke_color='white',
+                stroke_width=5
             )
-            bg = ColorClip(size=txt.size, color=(0, 0, 0)).with_opacity(0.7)
             
-            out_scr = txt.with_start(start).with_end(end) \
-                                .with_effects([vfx.CrossFadeIn(0.1), vfx.CrossFadeOut(0.1)]) \
-                                .with_position(("center", "center"))
-                                
-            # out_bg = bg.with_start(start).with_end(end) \
-            #                 .with_effects([vfx.CrossFadeIn(0.1), vfx.CrossFadeOut(0.1)]) \
-            #                 .with_position(("center", "center"))
-                                
+            out_scr = txt.with_start(start).with_duration(duration) \
+                                .with_effects([vfx.CrossFadeIn(0.001), vfx.CrossFadeOut(0.001)]) \
+                                .with_position(("center", 950))
+
             final_clips.append(out_scr)
-            # final_clips.append(out_bg)
 
     final_video = CompositeVideoClip(final_clips).with_audio(audio_clip)
 
@@ -246,24 +311,24 @@ def delete_resource(script_dir='./script', audio_dir='./audio', image_dir='./ima
     if os.path.exists(image_dir) and os.path.isdir(image_dir):
         shutil.rmtree(image_dir)
 
-def main(transcripts, wav_urls, image_urls, fps=30, show_script=False):
-    delete_resource()
-    save_transcripts_to_folder(transcripts)
-    download_wavs_from_urls(wav_urls)
-    download_images_from_urls(image_urls)
-    make_video(fps=fps, show_script=show_script)
+def merge_video(transcripts, wav_urls, image_urls, color, name_day, fps=30, show_script=False):
+    # delete_resource()
+    # save_transcripts_to_folder(transcripts)
+    # download_wavs_from_urls(wav_urls)
+    # download_images_from_urls(image_urls)
+    make_video(fps=fps, show_script=show_script, name_day=name_day, color=color)
     
-import sys
-if __name__ == "__main__":
-    import json
-    if len(sys.argv) < 6:
-        print("Usage: python make_video_from_image.py <transcripts_json> <wav_urls_json> <image_urls_json> <fps> <show_script>")
-        sys.exit(1)
+# import sys
+# if __name__ == "__main__":
+#     import json
+#     if len(sys.argv) < 6:
+#         print("Usage: python make_video_from_image.py <transcripts_json> <wav_urls_json> <image_urls_json> <fps> <show_script>")
+#         sys.exit(1)
 
-    transcripts = json.loads(sys.argv[1])
-    wav_urls = json.loads(sys.argv[2])
-    image_urls = json.loads(sys.argv[3])
-    fps = int(sys.argv[4])
-    show_script = sys.argv[5].lower() in ("true", "1", "yes")
+#     transcripts = json.loads(sys.argv[1])
+#     wav_urls = json.loads(sys.argv[2])
+#     image_urls = json.loads(sys.argv[3])
+#     fps = int(sys.argv[4])
+#     show_script = sys.argv[5].lower() in ("true", "1", "yes")
 
-    main(transcripts, wav_urls, image_urls, fps=fps, show_script=show_script)
+#     merge_video(transcripts, wav_urls, image_urls, fps=fps, show_script=show_script, color=color)

@@ -4,6 +4,11 @@ from typing import List
 from pathlib import Path
 from fastapi.responses import JSONResponse
 import subprocess, json, sys, os, shutil, re
+from fastapi.responses import Response
+import tempfile
+from pathlib import Path
+from pydantic import BaseModel, Field
+from typing import List, Literal, Optional
 
 # --- GCS upload ---
 def upload_to_gcs(local_path: str, dest_blob_name: str, make_public: bool = False) -> str:
@@ -37,9 +42,11 @@ class MakeVideoRequest(BaseModel):
     transcripts: List[str] = Field(..., min_length=1)
     wav_urls: List[HttpUrl] = Field(..., min_length=1)
     image_urls: List[HttpUrl] = Field(..., min_length=1)
-    fps: conint(ge=10, le=60) = Field(30)
+    fps: int
     show_script: bool = Field(False)
     id: str
+    color: str
+    name_day: str
 
     @field_validator("transcripts")
     @classmethod
@@ -71,6 +78,7 @@ def safe_unlink(p: str):
     except Exception:
         pass
 
+from video_maker.concat_video import merge_video
 app = FastAPI()
 
 @app.post("/generate-video")
@@ -79,31 +87,35 @@ def generate_video(body: MakeVideoRequest):
     wav_urls = [str(u) for u in body.wav_urls]
     image_urls = [str(u) for u in body.image_urls]
     fps = body.fps
-    show_script = body.show_script
+    show_script = bool(body.show_script)
+    color = body.color
+    name_day = body.name_day
+    
+    # # Chạy script ghép video
+    # cmd = [
+    #     sys.executable,"-m", 
+    #     "video_maker.concat_video",
+    #     json.dumps(transcripts, ensure_ascii=False),
+    #     json.dumps(wav_urls, ensure_ascii=False),
+    #     json.dumps(image_urls, ensure_ascii=False),
+    #     str(fps),
+    #     str(show_script),
+    # ]
+    
+    merge_video(transcripts, wav_urls, image_urls, fps=fps, show_script=show_script, color=color, name_day=name_day)
 
-    # Chạy script ghép video
-    cmd = [
-        sys.executable,"-m", 
-        "video_maker.concat_video",
-        json.dumps(transcripts, ensure_ascii=False),
-        json.dumps(wav_urls, ensure_ascii=False),
-        json.dumps(image_urls, ensure_ascii=False),
-        str(fps),
-        str(show_script),
-    ]
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=9000,
-            check=True,  # raise CalledProcessError nếu exit code != 0
-        )
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Script error: {e.stderr or e.stdout}")
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Tạo video quá thời gian (timeout).")
+    # try:
+    #     proc = subprocess.run(
+    #         cmd,
+    #         capture_output=True,
+    #         text=True,
+    #         timeout=9000,
+    #         check=True,  # raise CalledProcessError nếu exit code != 0
+    #     )
+    # except subprocess.CalledProcessError as e:
+    #     raise HTTPException(status_code=500, detail=f"Script error: {e.stderr or e.stdout}")
+    # except subprocess.TimeoutExpired:
+    #     raise HTTPException(status_code=504, detail="Tạo video quá thời gian (timeout).")
 
     # File đầu ra mặc định từ script
     default_out = Path("audio/my_video.mp4")
@@ -138,3 +150,76 @@ def generate_video(body: MakeVideoRequest):
 
     # Trả về URL (JSON)
     return JSONResponse({"url": video_url})
+
+
+class PosterRequest(BaseModel):
+    images: List[str] = Field(..., description="Danh sách URL/path ảnh (lấy tối đa 6)")
+    text: str = Field(..., description="Overlay text")
+    fmt: Literal["jpeg", "png"] = Field("jpeg", description="Định dạng ảnh xuất")
+    quality: Optional[int] = Field(90, description="Chỉ dùng cho JPEG 0–100")
+    scale: int = Field(2, description="Device scale factor khi render ảnh")
+    wait: Literal["load", "domcontentloaded", "networkidle", "commit"] = Field(
+        "networkidle", description="Chiến lược chờ tải trang"
+    )
+    # Nếu poster_generator.py nằm nơi khác, chỉnh tại đây
+    script_path: str = Field("poster_generator.py", description="Đường dẫn script sinh poster")
+
+@app.post("/generate-poster")
+def generate_poster(body: PosterRequest):
+    if not body.images:
+        raise HTTPException(status_code=400, detail="Thiếu danh sách ảnh")
+
+    # Thư mục tạm để chứa html + ảnh => auto cleanup khi ra khỏi with
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        html_path = tmpdir_path / "poster.html"
+        img_ext = "jpg" if body.fmt == "jpeg" else "png"
+        img_path = tmpdir_path / f"poster.{img_ext}"
+
+        # Lắp command gọi script
+        cmd = [sys.executable, body.script_path, *body.images, "-t", body.text, "-o", str(html_path)]
+        if body.fmt == "jpeg":
+            cmd += ["--jpeg", str(img_path)]
+            if body.quality is not None:
+                cmd += ["--quality", str(int(body.quality))]
+        else:
+            cmd += ["--png", str(img_path)]
+
+        # Có thể truyền thêm scale/wait vào script nếu bạn bổ sung tham số tương ứng
+        # Ở đây script đã có --scale/--wait nên ta truyền luôn:
+        cmd += ["--scale", str(int(body.scale)), "--wait", body.wait]
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=900,
+                encoding="utf-8",
+            )
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="⏱️ Quá thời gian xử lý")
+
+        if proc.returncode != 0:
+            err = proc.stderr.decode("utf-8", "replace")  # chỉ để hiển thị lỗi
+            raise HTTPException(status_code=500, detail=f"Script error:\n{err}")
+
+        if not img_path.exists():
+            # fallback: đôi khi người dùng truyền sai fmt, thử dò file còn lại
+            other = tmpdir_path / ("poster.png" if img_ext == "jpg" else "poster.jpg")
+            if other.exists():
+                img_path = other
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Không tìm thấy ảnh đầu ra: {img_path}",
+                )
+
+        # Đọc bytes rồi trả về octet-stream; vì dùng TemporaryDirectory nên file sẽ tự xoá
+        data = img_path.read_bytes()
+
+        # Bạn muốn octet-stream, mình set đúng như yêu cầu
+        headers = {
+            "Content-Disposition": f'inline; filename="{img_path.name}"'
+        }
+        return Response(content=data, media_type="application/octet-stream", headers=headers)
